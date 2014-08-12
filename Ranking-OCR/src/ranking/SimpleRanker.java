@@ -1,4 +1,6 @@
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
 /*
  * Copyright (C) 2014 Administrateur
  *
@@ -141,6 +143,7 @@ public class SimpleRanker implements Ranker {
     private final LinkedList<String> original = new LinkedList();
 }
 =======
+>>>>>>> origin/master
 /*
  * Copyright (C) 2014 Nils Ryter
  *
@@ -286,4 +289,7 @@ public class SimpleRanker implements Ranker {
     //Original document
     private final LinkedList<String> original = new LinkedList();
 }
+<<<<<<< HEAD
+=======
+>>>>>>> origin/master
 >>>>>>> origin/master
