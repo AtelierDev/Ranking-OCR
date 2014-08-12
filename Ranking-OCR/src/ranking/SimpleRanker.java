@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Administrateur
+ * Copyright (C) 2014 Nils Ryter
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ import java.util.LinkedList;
 public class SimpleRanker implements Ranker {
 
     /**
-     * Create a new SimpleRanker
+     * Create a new SimpleRanker.
      */
     public SimpleRanker() {
     }
@@ -67,6 +67,10 @@ public class SimpleRanker implements Ranker {
         clearTxt2 = clearTxt2.replaceAll("[éèêë]", "e");
         clearTxt1 = clearTxt1.replaceAll("[àäâ]", "a");
         clearTxt2 = clearTxt2.replaceAll("[àäâ]", "a");
+        clearTxt1 = clearTxt1.replaceAll("[ôöò]", "o");
+        clearTxt2 = clearTxt2.replaceAll("[ôöò]", "o");
+        clearTxt1 = clearTxt1.replaceAll("[ïîì]", "i");
+        clearTxt2 = clearTxt2.replaceAll("[ïîì]", "i");
         //Split the string by space
         this.original.addAll(Arrays.asList(clearTxt1.split("[ ]+")));
         this.comparative.addAll(Arrays.asList(clearTxt2.split("[ ]+")));
