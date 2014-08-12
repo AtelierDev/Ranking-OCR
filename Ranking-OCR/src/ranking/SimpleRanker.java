@@ -112,7 +112,7 @@ public class SimpleRanker implements Ranker {
                 && (posOinC >= 0 && posCinO < posOinC || posOinC < 0)) {
             //Sync between the both document
             for (int i = posCinO; i > 0; --i) {
-                original.removeFirst();
+                original.removeFirst(); 
                 ++nbError;
             }
         } else if (posOinC <= syncRange && posOinC >= 0
