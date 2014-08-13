@@ -1,0 +1,7 @@
+=================
+ RankerOCR HELP
+=================
+
+Compare two document and return the difference in percent  between the first and the second. Note that program will return something. It will return a negative value if encounter errors. If no error, the value returned is the comparison result as a percent.
+By default, the percent use 3 digits for the integer part and has 2 digits for decimal precision. The result will be like this ##### but you should interpret ###.##
+

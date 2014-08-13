@@ -14,22 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package ranking;
 
 /**
  * Common interface of the rankers.
- *
+ * <p>
  * @author Nils Ryter
  */
 public interface Ranker {
 
     /**
      * Compare the documents.
-     *
-     * @param s1 Original document
-     * @param s2 Document to compare to original
+     * <p>
+     * @param original Original document
+     * @param comparative Document to compare to original
      * @return Error rate in percent
      */
-    public double compare(String s1, String s2);
+    public double compare(String original, String comparative);
 }
