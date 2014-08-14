@@ -19,16 +19,19 @@ package main;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.util.Date;
 import java.util.List;
 import libraries.PackageClassList;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import ranking.Ranker;
@@ -43,20 +46,31 @@ public class RankerOCR {
     private static final HelpFormatter hf = new HelpFormatter();
     //Manage options of CLI
     private static final Options options = new Options();
+    //Wide of the CLI screen
+    private static final int width = 50;
 
     static {
+        //<editor-fold defaultstate="collapsed" desc="Initialization">
         //Adding option
+        Option o = new Option("", "");
         options.addOption("gui", false, "Launch a graphical user interface");
-        options.addOption("decimal", true, "Set the number of decimal after 0");
-        options.addOption("origin", true,
+        options.addOption("indoc1", true,
                 "Set the file name of the original document");
-        options.addOption("compared", true,
+        options.getOption("indoc1").setRequired(true);
+        options.addOption("indoc2", true,
                 "Set the file name of the document to compare");
+        options.getOption("indoc2").setRequired(true);
         options.addOption("ranker", true,
                 "Set the ranker used for the comparison");
         options.addOption("help", false, "Show the help");
+        options.addOption("outdoc", true,
+                "Set the document where write the results as CSV");
+        options.getOption("outdoc").setRequired(true);
+        options.addOption("separator", true,
+                "Set the delimiter char use in the CSV out file");
         //Help formater
         hf.setOptPrefix("-");
+        //</editor-fold>
     }
 
     /**
@@ -68,49 +82,33 @@ public class RankerOCR {
      * </ul>
      * <b>Options list:</b>
      * <ul>
-     * -compared [arg] Set the file name of the document to compare
-     * <br>
-     * -decimal [arg] Set the number of decimal after 0
-     * <br>
-     * -gui Launch a graphical user interface
-     * <br>
-     * -help Show the help
-     * <br>
-     * -origin [arg] Set the file name of the original document
-     * <br>
-     * -ranker [arg] Set the ranker used for the comparison
+     * <li>-gui Launch a graphical user interface</li>
+     * <li>-help Show the help</li>
+     * <li>-indoc1 [arg] Set the file name of the original document</li>
+     * <li>-indoc2 [arg] Set the file name of the document to compare</li>
+     * <li>-ranker [arg] Set the ranker used for the comparison</li>
+     * <li>-outdoc [arg] Set the document where write the results</li>
+     * <li>-separator [arg] Set the delimiter char use in the CSV out file</li>
      * </ul>
-     * <b>Return values are as follows:</b>
-     * <br>
-     * Double representation as a integer. The number of decimal after the dot
-     * can be set. The result will be like this ##### but you should interpret
-     * ###.##
-     * <p>
      * <b>Return values are if error:</b>
      * <ul>
-     * (-1) The precision parameter is not a number.
-     * <br>
-     * (-2) The precision parameter is lower than 0.
-     * <br>
-     * (-3) The precision parameter is greater than 10.
-     * <br>
-     * (-4) Internal error when converting URL to URI. Please check file name.
-     * <br>
-     * (-5) Error when access to help file
-     * <br>
-     * (-6) Error when parsing parameters
-     * <br>
-     * (-7) File name of the option -origin is not correct
-     * <br>
-     * (-8) File name of the option -compared is not correct
-     * <br>
-     * (-9) Error when access to documents files
-     * <br>
-     * (-10) The ranker name is wrong
-     * <br>
-     * (-11) Internal error when get the ranker list. Please report as a bug.
-     * <br>
-     * (-12) Internal error when creating the ranker. Please report as a bug.
+     * <li>(-1) The precision parameter is not a number.</li>
+     * <li>(-2) The precision parameter is lower than 0.</li>
+     * <li>(-3) The precision parameter is greater than 10.</li>
+     * <li>(-11) The ranker name is wrong</li>
+     * <li>(-21) The separator char is empty</li>
+     * <li>(-22) The separator is not a char</li>
+     * <li>(-31) File name doesn't exist</li>
+     * <li>(-32) File name is not a file</li>
+     * <li>(-33) Error when access to documents files</li>
+     * <li>(-34) Output file can not be write</li>
+     * <li>(-35) Output file can not be created</li>
+     * <li>(-41) Error when parsing parameters</li>
+     * <li>(-100) Internal error when creating the ranker. Please report a
+     * bug</li>
+     * <li>(-101) Internal error when get the ranker list. Please report a
+     * bug.</li>
+     * <li>(-102) Error when access to help file. Please report a bug.</li>
      * </ul>
      * <p>
      * @param args Argument array which can have the values from options list
@@ -120,64 +118,101 @@ public class RankerOCR {
         CommandLineParser parser = new GnuParser();
         try {
             CommandLine cmd = parser.parse(options, args);
-            //<editor-fold defaultstate="collapsed" desc="Show Help">
             if (cmd.hasOption("help")) {
                 showHelp(hf, options);
-                System.exit(0);
-            }
-            //</editor-fold>
-
-            //<editor-fold defaultstate="collapsed" desc="Show GUI">
-            if ((!cmd.hasOption("origin") || !cmd.hasOption("compared"))
-                    && cmd.hasOption("gui")) {
+            } else if (cmd.hasOption("gui")) {
                 display.DispalyRankerOCR.main(new String[]{});
-                System.exit(0);
+            } else if (cmd.hasOption("indoc1")
+                    && cmd.hasOption("indoc2")
+                    && cmd.hasOption("outdoc")) {
+                //<editor-fold defaultstate="collapsed" desc="Rank documents">
+                //Prepare parameter
+                Class ranker = evalRanker(cmd.getOptionValue("ranker",
+                        "SimpleRanker"));
+                char separator = evalSeparator(cmd.getOptionValue("separator",
+                        "\t"));
+                File f1 = evalInputFile(cmd.getOptionValue("indoc1", ""));
+                File f2 = evalInputFile(cmd.getOptionValue("indoc2", ""));
+                File f3 = evalOutputFile(cmd.getOptionValue("outdoc", ""),
+                        separator);
+                //Read file
+                String s1 = readInputDocText(f1);
+                String s2 = readInputDocText(f2);
+                //Compare file
+                double percent = rankDocuments(s1, s2, ranker);
+                //Write result
+                String[] s = {Double.toString(percent), ranker.getSimpleName(),
+                    f1.getName(), f2.getName(), f1.getParent(), f2.getParent(),
+                    new Date().toString()};
+                writeOutpuDocCsv(f3, separator, s);
+                //</editor-fold>
+            } else {
+                printFormated("java -jar Ranker-OCR [options]  please type "
+                        + "-help for more info");
             }
-            //</editor-fold>
-
-            //<editor-fold defaultstate="collapsed" desc="Rank documents">
-            if (cmd.hasOption("origin") && cmd.hasOption("compared")) {
-                //Check document path and access
-                File f1 = new File(cmd.getOptionValue("origin", ""));
-                File f2 = new File(cmd.getOptionValue("compared", ""));
-                if (!f1.isFile()) {
-                    System.exit(-7);
-                }
-                if (!f2.isFile()) {
-                    System.exit(-8);
-                }
-                //Try to get the content of documents
-                try {
-                    String s1 = getDocumentText(f1);
-                    String s2 = getDocumentText(f2);
-                    //Show the document in GUI or compare them in CLI
-                    if (cmd.hasOption("gui")) {
-                        display.DispalyRankerOCR.main(new String[]{s1, s2});
-                    } else if (cmd.hasOption("ranker")) {
-                        rankDocuments(s1, s2, cmd.getOptionValue("ranker", ""),
-                                convertPrecision(cmd.getOptionValue(
-                                                "decimal", "2")));
-                    }
-                } catch (IOException ex) {
-                    System.exit(-9);
-                }
-            }
-            //</editor-fold>
         } catch (ParseException ex) {
-            System.exit(-6);
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-41);
         }
-        hf.printUsage(new PrintWriter(System.out, true), 50,
-                "java -jar Ranker-OCR [options]");
-        System.exit(0);
     }
 
     /**
-     * Convert the precision parameter.
+     * Evaluate any input files parameters.
+     * <p>
+     * @param s File path as a string
+     * @return File if possible. Otherwise, stop the program and return an error
+     * code
+     */
+    private static File evalInputFile(String s) {
+        File f = new File(s);
+        if (!f.exists()) {
+            printFormated("File not exist : " + s);
+            System.exit(-31);
+        } else if (!f.isFile()) {
+            printFormated("Not a file path : " + s);
+            System.exit(-32);
+        }
+        return f;
+    }
+
+    /**
+     * Evaluate any output files parameters.
+     * <p>
+     * @param s File path as a string
+     * @param c Separator charter, require if must to create a new file
+     * @return File if possible. Otherwise, stop the program and return an error
+     * code
+     */
+    private static File evalOutputFile(String s, char c) {
+        File f = new File(s);
+        if (!f.exists()) {
+            try {
+                f.createNewFile();
+                //Write CSV title
+                String[] t = {"Similarity %", "Ranker name", "Original name",
+                    "Comparative name", "Original path", "Comparative path",
+                    "Date & Time"};
+                writeOutpuDocCsv(f, c, t);
+            } catch (IOException ex) {
+                printFormated(ex.getLocalizedMessage());
+                System.exit(-35);
+            }
+        }
+        if (!f.canWrite()) {
+            printFormated("Can not write : " + s);
+            System.exit(-34);
+        }
+        return f;
+    }
+
+    /**
+     * Evaluate the precision parameter.
      * <p>
      * @param s precision parameter as a string
-     * @return Precision parameter as a integer
+     * @return Precision parameter as a integer if possible. Otherwise, stop the
+     * program and return an error code
      */
-    private static int convertPrecision(String s) {
+    private static int evalPrecisionOption(String s) {
         try {
             int precision;
             precision = Integer.valueOf(s);
@@ -188,8 +223,73 @@ public class RankerOCR {
             }
             return precision;
         } catch (NumberFormatException ex) {
+            printFormated(ex.getLocalizedMessage());
             System.exit(-1);
             return 0;
+        }
+    }
+
+    /**
+     * Evaluate the ranker parameter.
+     * <p>
+     * @param s ranker parameter as a string
+     * @return Ranker class if possible. Otherwise, stop the program and return
+     * an error code
+     */
+    private static Class evalRanker(String s) {
+        try {
+            return Class.forName("ranking." + s);
+        } catch (ClassNotFoundException ex) {
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-11);
+            return null;
+        }
+    }
+
+    /**
+     * Evaluate the separator parameter.
+     * <p>
+     * @param s Separator parameter as a string
+     * @return Separator char if possible. Otherwise, stop the program and
+     * return an error code
+     */
+    private static char evalSeparator(String s) {
+        if (s.isEmpty()) {
+            System.exit(-21);
+        }
+        if (s.length() != 1) {
+            System.exit(-22);
+        }
+        return s.charAt(0);
+    }
+
+    /**
+     * Print a text formatted for the CLI interface on the CLI interface.
+     * <p>
+     * @param s String to print
+     */
+    private static void printFormated(String s) {
+        System.out.println();
+        hf.printWrapped(new PrintWriter(System.out, true), width, s);
+        System.out.println();
+    }
+
+    /**
+     * Compare the documents and rank them.
+     * <p>
+     * @param d1 Origin text
+     * @param d2 Comparative text
+     * @param ranker Class of the ranker to use
+     * @return Return the percent of difference between documents
+     */
+    private static double rankDocuments(String d1, String d2, Class ranker) {
+        try {
+            Ranker instance = (Ranker) ranker.newInstance();
+            return instance.compare(d1, d2);
+        } catch (InstantiationException | IllegalAccessException ex) {
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-100);
+            return -1;
         }
     }
 
@@ -199,65 +299,26 @@ public class RankerOCR {
      * @param f Document file
      * @return Text of the document
      */
-    private static String getDocumentText(File f) throws IOException {
-        FileReader fr;
-        fr = new FileReader(f);
-        BufferedReader b = new BufferedReader(fr);
-        StringBuilder s = new StringBuilder();
-        while (true) {
-            String line = b.readLine();
-            if (line == null) {
-                break;
-            } else {
-                s.append(line);
-                s.append("\n");
-            }
-        }
-        return s.toString();
-    }
-
-    /**
-     * Return a stream content as a string.
-     * <p>
-     * @param is Input stream
-     * @return Text of the document
-     */
-    private static String getDocumentText(InputStream is) throws IOException {
-        InputStreamReader fr;
-        fr = new InputStreamReader(is);
-        BufferedReader b = new BufferedReader(fr);
-        StringBuilder s = new StringBuilder();
-        while (true) {
-            String line = b.readLine();
-            if (line == null) {
-                break;
-            } else {
-                s.append(line);
-                s.append("\n");
-            }
-        }
-        return s.toString();
-    }
-
-    /**
-     * Compare the documents and rank them.
-     * <p>
-     * @param d1 Origin text
-     * @param d2 Comparative text
-     * @param ranker Name of the ranker to use
-     * @param decimal The number of decimal wanted
-     */
-    private static void rankDocuments(String d1, String d2, String ranker,
-            int decimal) {
+    private static String readInputDocText(File f) {
         try {
-            Class rankerClass = Class.forName("ranking." + ranker);
-            Ranker instance = (Ranker) rankerClass.newInstance();
-            double rate = instance.compare(d1, d2);
-            System.exit((int) (Math.pow(10, decimal) * rate));
-        } catch (ClassNotFoundException ex) {
-            System.exit(-10);
-        } catch (InstantiationException | IllegalAccessException ex) {
-            System.exit(-12);
+            FileReader fr;
+            fr = new FileReader(f);
+            BufferedReader b = new BufferedReader(fr);
+            StringBuilder s = new StringBuilder();
+            while (true) {
+                String line = b.readLine();
+                if (line == null) {
+                    break;
+                } else {
+                    s.append(line);
+                    s.append("\n");
+                }
+            }
+            return s.toString();
+        } catch (IOException ex) {
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-33);
+            return null;
         }
     }
 
@@ -269,19 +330,32 @@ public class RankerOCR {
      * -The HelpFormatter <br>
      * -Options.
      */
-    private static void showHelp(HelpFormatter hf,
-            Options options) {
+    private static void showHelp(HelpFormatter hf, Options options) {
         try {
             //First, print the header of help and brief summary of the behaviour
+            //<editor-fold defaultstate="collapsed" desc="Print summary">
             InputStream f = RankerOCR.class.getResourceAsStream(
                     "/resources/help.txt");
-            hf.printWrapped(new PrintWriter(System.out, true), 50,
-                    getDocumentText(f));
-            System.out.println("\n");
+            InputStreamReader fr = new InputStreamReader(f);
+            BufferedReader b = new BufferedReader(fr);
+            StringBuilder s = new StringBuilder();
+            while (true) {
+                String line = b.readLine();
+                if (line == null) {
+                    break;
+                } else {
+                    s.append(line);
+                    s.append("\n");
+                }
+            }
+            printFormated(s.toString());
+            //</editor-fold>
             //Second, print the options list
             hf.printHelp("java -jar Ranker-OCR [options]", options);
+            //Finnaly print the rankers list
+            //<editor-fold defaultstate="collapsed" desc="Print rankers">
             try {
-                //Finnaly print the rankers list
+
                 System.out.println("\nRankers list:");
                 List<Class> lst = PackageClassList.getClasses("ranking");
                 lst.remove(ranking.Ranker.class);
@@ -291,11 +365,41 @@ public class RankerOCR {
                     }
                 });
             } catch (ClassNotFoundException | IOException ex) {
-                System.err.println(ex);
-                System.exit(-11);
+                printFormated(ex.getLocalizedMessage());
+                System.exit(-101);
             }
+            //</editor-fold>
         } catch (IOException ex) {
-            System.exit(-5);
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-102);
+        }
+    }
+
+    /**
+     * Write all the given text in a new line in a CSV file
+     * <p>
+     * @param f CSV file to write
+     * @param c Separator charter
+     * @param s Values to write
+     */
+    private static void writeOutpuDocCsv(File f, char c, String[] s) {
+        FileWriter w = null;
+        try {
+            w = new FileWriter(f, true);
+            for (String txt : s) {
+                w.append(txt + c);
+            }
+            w.append("\n\r");
+        } catch (IOException ex) {
+            printFormated(ex.getLocalizedMessage());
+            System.exit(-34);
+        } finally {
+            try {
+                w.close();
+            } catch (IOException ex) {
+                printFormated(ex.getLocalizedMessage());
+                System.exit(-34);
+            }
         }
     }
 }
