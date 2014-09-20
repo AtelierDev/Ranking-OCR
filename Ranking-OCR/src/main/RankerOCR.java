@@ -189,7 +189,7 @@ public class RankerOCR {
             try {
                 f.createNewFile();
                 //Write CSV title
-                String[] t = {"Similarity %", "Ranker name", "Original name",
+                String[] t = {"Difference %", "Ranker name", "Original name",
                     "Comparative name", "Original path", "Comparative path",
                     "Date & Time"};
                 writeOutpuDocCsv(f, c, t);
@@ -300,18 +300,18 @@ public class RankerOCR {
      * @return Text of the document
      */
     private static String readInputDocText(File f) {
-        try {
-            FileReader fr;
-            fr = new FileReader(f);
-            BufferedReader b = new BufferedReader(fr);
-            StringBuilder s = new StringBuilder();
-            while (true) {
-                String line = b.readLine();
-                if (line == null) {
-                    break;
-                } else {
-                    s.append(line);
-                    s.append("\n");
+        try (FileReader fr = new FileReader(f)) {
+            StringBuilder s;
+            try (BufferedReader b = new BufferedReader(fr)) {
+                s = new StringBuilder();
+                while (true) {
+                    String line = b.readLine();
+                    if (line == null) {
+                        break;
+                    } else {
+                        s.append(line);
+                        s.append("\n");
+                    }
                 }
             }
             return s.toString();
